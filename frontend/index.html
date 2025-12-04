@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HMCTS Task Creator</title>
+    <style>
+        /* Basic CSS for presentation */
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto; }
+        .container { background: #f9f9f9; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; }
+        label { display: block; margin-top: 10px; font-weight: bold; }
+        input[type="text"], input[type="datetime-local"], textarea { width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; margin-top: 20px; width: 100%; }
+        button:hover { background-color: #0056b3; }
+        #message { margin-top: 20px; padding: 15px; border-radius: 4px; display: none; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        #task-details { margin-top: 20px; padding: 10px; border: 1px solid #eee; border-radius: 4px; background: #fff; }
+        #task-details h3 { margin-top: 0; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>New Caseworker Task</h1>
+
+        <div id="message"></div>
+
+        <form id="task-form">
+            
+            <label for="title">Title <span style="color: red;">*</span></label>
+            <input type="text" id="title" name="title" required maxlength="100">
+
+            <label for="description">Description (Optional)</label>
+            <textarea id="description" name="description" rows="3" maxlength="500"></textarea>
+            
+            <label for="dueDate">Due Date/Time <span style="color: red;">*</span></label>
+            <input type="datetime-local" id="dueDate" name="dueDate" required>
+
+            <button type="submit">Create Task</button>
+        </form>
+
+        <div id="task-details" style="display: none;">
+            <h3>Successfully Created Task</h3>
+            <p><strong>Title:</strong> <span id="detail-title"></span></p>
+            <p><strong>Status:</strong> <span id="detail-status"></span></p>
+            <p><strong>Due By:</strong> <span id="detail-due-date"></span></p>
+            <p><strong>Description:</strong> <span id="detail-description"></span></p>
+        </div>
+    </div>
+
+    <script>
+        // --- Frontend JavaScript Logic ---
+        
+        const form = document.getElementById('task-form');
+        const messageDiv = document.getElementById('message');
+        const taskDetailsDiv = document.getElementById('task-details');
+        const API_URL = 'http://127.0.0.1:5000/api/tasks';
+
+        // Helper function to format the date for display
+        const formatDate = (isoString) => {
+            const date = new Date(isoString);
+            return date.toLocaleString('en-GB', { 
+                day: 'numeric', month: 'short', year: 'numeric', 
+                hour: '2-digit', minute: '2-digit' 
+            });
+        };
+
+        // Function to display messages (success or error)
+        const displayMessage = (text, type) => {
+            messageDiv.textContent = text;
+            messageDiv.className = type === 'success' ? 'success' : 'error';
+            messageDiv.style.display = 'block';
+        };
+
+        // Function to display the created task details
+        const displayTaskDetails = (task) => {
+            document.getElementById('detail-title').textContent = task.title;
+            document.getElementById('detail-status').textContent = task.status;
+            document.getElementById('detail-due-date').textContent = formatDate(task.due_date);
+            document.getElementById('detail-description').textContent = task.description || 'N/A';
+            taskDetailsDiv.style.display = 'block';
+        };
+
+        // Main form submission handler
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault(); // Stop the default form submission
+            
+            // 1. Prepare Data
+            const formData = {
+                title: document.getElementById('title').value.trim(),
+                description: document.getElementById('description').value.trim(),
+                // datetime-local inputs provide a string formatted like YYYY-MM-DDTHH:MM
+                due_date: document.getElementById('dueDate').value 
+            };
+            
+            // Clear previous messages and details
+            messageDiv.style.display = 'none';
+            taskDetailsDiv.style.display = 'none';
+
+            try {
+                // 2. Send API Request
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+
+                // 3. Handle Response
+                if (response.status === 201) {
+                    // Success: Task created
+                    displayMessage(data.message, 'success');
+                    displayTaskDetails(data.task);
+                    form.reset(); // Clear the form
+                } else {
+                    // Client/Server Error (e.g., 400 Bad Request)
+                    displayMessage(`Failed to create task: ${data.error || 'Unknown Error'}`, 'error');
+                }
+            } catch (error) {
+                // Network Error
+                console.error('Fetch error:', error);
+                displayMessage('Network error. Ensure the backend server is running.', 'error');
+            }
+        });
+
+    </script>
+</body>
+</html>
